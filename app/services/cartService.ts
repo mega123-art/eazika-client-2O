@@ -10,7 +10,6 @@ export interface CartItem {
   quantity: number;
   createdAt: string;
   updatedAt: string;
-  // API might strictly return IDs, so we optionally handle details if the backend includes them later
   productDetails?: {
     name: string;
     image: string;

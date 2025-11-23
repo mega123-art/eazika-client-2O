@@ -1,103 +1,45 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { ArrowLeft, ChevronRight, Package, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ArrowLeft, ChevronRight, Package, CheckCircle, RefreshCw, XCircle, Loader2, Truck, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { CartService, Order } from '@/app/services/cartService';
 
-// --- Mock Data (Self-Contained to avoid import errors) ---
-type OrderStatus = 'Live' | 'Completed' | 'Cancelled';
-
-type MockOrder = {
-  id: string;
-  restaurantName: string;
-  date: string;
-  total: string;
-  status: OrderStatus;
-  items: string[];
+// --- Helper to get Status Icon ---
+const getStatusInfo = (status: string) => {
+    switch(status) {
+        case 'pending':
+        case 'confirmed':
+        case 'preparing':
+        case 'ready':
+            return { icon: Package, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400', animate: false, label: 'Processing' };
+        case 'shipped':
+            return { icon: Truck, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400', animate: true, label: 'On the way' };
+        case 'delivered':
+            return { icon: CheckCircle, color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400', animate: false, label: 'Delivered' };
+        case 'cancelled':
+            return { icon: XCircle, color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400', animate: false, label: 'Cancelled' };
+        default:
+            return { icon: Package, color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', animate: false, label: status };
+    }
 };
 
-// We include the order from your track-order page so it appears here
-const initialOrders: MockOrder[] = [
-  {
-    id: '123546789', // This ID matches the track-order page
-    restaurantName: 'Testing POS Restaurant',
-    date: 'Nov 10, 2025',
-    total: '$150.50',
-    status: 'Live',
-    items: ['French Fries x1', 'Chicken Biryani x2', 'Smoky Burger x1'],
-  },
-  {
-    id: '987654321',
-    restaurantName: 'Pizza Palace',
-    date: 'Nov 09, 2025',
-    total: '$45.00',
-    status: 'Completed',
-    items: ['Large Pepperoni', 'Garlic Knots'],
-  },
-  {
-    id: '555123456',
-    restaurantName: 'Sushi Spot',
-    date: 'Nov 08, 2025',
-    total: '$78.20',
-    status: 'Completed',
-    items: ['Dragon Roll', 'Spicy Tuna Roll', 'Miso Soup'],
-  },
-  {
-    id: '777888999',
-    restaurantName: 'Burger Joint',
-    date: 'Nov 07, 2025',
-    total: '$22.50',
-    status: 'Cancelled', // Added a cancelled one
-    items: ['Cheeseburger', 'Fries'],
-  }
-];
-
 // --- Order Card Sub-Component ---
-const OrderCard = ({ order }: { order: MockOrder }) => {
-  const isLive = order.status === 'Live';
+const OrderCard = ({ order }: { order: Order }) => {
+  const router = useRouter();
+  const isLive = !['delivered', 'cancelled'].includes(order.status);
 
   const handleCardClick = () => {
     if (isLive) {
-      // Navigate to the track-order page.
-      // That page has its own self-contained data, so this works.
-      window.location.href = '/track-order'; 
+      router.push(`/orders/track-order?id=${order.id}`);
     } else {
-      // Navigate to the order details page
-      window.location.href = `/profile/orders/${order.id}`;
+      router.push(`/orders/${order.id}`);
     }
   };
   
-  // Determine status icon and color
-  const getStatusInfo = () => {
-    switch(order.status) {
-      case 'Live':
-        return { 
-          icon: RefreshCw, 
-          color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400',
-          animate: true
-        };
-      case 'Completed':
-        return { 
-          icon: CheckCircle, 
-          color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
-          animate: false
-        };
-      case 'Cancelled':
-        return { 
-          icon: XCircle, 
-          color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-          animate: false
-        };
-      default:
-        return { 
-          icon: Package, 
-          color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-          animate: false
-        };
-    }
-  };
-
-  const statusInfo = getStatusInfo();
+  const statusInfo = getStatusInfo(order.status);
 
   return (
     <motion.div
@@ -110,28 +52,28 @@ const OrderCard = ({ order }: { order: MockOrder }) => {
     >
       <div className="flex items-center justify-between pb-3 border-b dark:border-gray-700">
         <div className="flex items-center gap-3">
-          {/* Image Placeholder */}
           <div className={`w-12 h-12 rounded-lg ${statusInfo.color} flex items-center justify-center shrink-0`}>
-            <statusInfo.icon className={`w-6 h-6 ${statusInfo.animate ? 'animate-spin' : ''}`} />
+            <statusInfo.icon className={`w-6 h-6 ${statusInfo.animate ? 'animate-pulse' : ''}`} />
           </div>
           <div>
-            <h3 className="font-bold text-gray-800 dark:text-white">{order.restaurantName}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{order.date}</p>
+            <h3 className="font-bold text-gray-800 dark:text-white">Order #{order.id}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+               <Clock size={10} /> {new Date(order.createdAt).toLocaleDateString()}
+            </p>
           </div>
         </div>
-        {/* Status */}
         <span 
-          className={`text-xs font-semibold px-2 py-1 rounded-full ${statusInfo.color}`}
+          className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusInfo.color}`}
         >
-          {order.status}
+          {statusInfo.label}
         </span>
       </div>
       <div className="pt-3">
         <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-          {order.items.join(', ')}
+            {order.totalProducts} Items • {order.paymentMethod.replace('_', ' ')}
         </p>
         <div className="flex items-center justify-between mt-3">
-          <span className="text-lg font-bold text-gray-900 dark:text-white">{order.total}</span>
+          <span className="text-lg font-bold text-gray-900 dark:text-white">₹{order.totalAmount}</span>
           <div className="flex items-center gap-1 text-sm font-semibold text-yellow-500">
             <span>{isLive ? 'Track Order' : 'View Details'}</span>
             <ChevronRight className="w-4 h-4" />
@@ -145,28 +87,45 @@ const OrderCard = ({ order }: { order: MockOrder }) => {
 // --- Main Page Component ---
 export default function OrderHistoryPage() {
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed'>('Live');
-  const [orders] = useState<MockOrder[]>(initialOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+        setIsLoading(true);
+        try {
+            const data = await CartService.getOrders();
+            // Sort newest first
+            const sorted = Array.isArray(data) ? data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+            setOrders(sorted);
+        } catch (error) {
+            console.error("Failed to fetch orders", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchOrders();
+  }, []);
 
   const filteredOrders = useMemo(() => {
     if (activeTab === 'Live') {
-      return orders.filter(o => o.status === 'Live');
+      return orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
     }
-    // Completed tab shows both Completed and Cancelled
-    return orders.filter(o => o.status === 'Completed' || o.status === 'Cancelled');
+    return orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
   }, [activeTab, orders]);
 
   return (
-    <div className="w-full max-w-5xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="w-full max-w-5xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
       {/* Header */}
       <header className="px-4 md:px-6 py-4 flex items-center space-x-4 border-b dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-0 z-10">
-        <a href="/profile" aria-label="Go back to profile">
+        <Link href="/profile" aria-label="Go back to profile">
           <ArrowLeft className="w-6 h-6 text-gray-800 dark:text-white" />
-        </a>
+        </Link>
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Order History</h1>
       </header>
 
       {/* Tab Navigation */}
-      <nav className="p-4 md:px-6 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-[69px] z-10">
+      <nav className="p-4 md:px-6 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-[65px] z-10">
         <div className="flex space-x-2 p-1 bg-gray-100 dark:bg-gray-900 rounded-full">
           <button
             onClick={() => setActiveTab('Live')}
@@ -203,31 +162,43 @@ export default function OrderHistoryPage() {
 
       {/* Order List */}
       <main className="grow overflow-y-auto p-4 md:p-6">
-        <motion.div layout className="space-y-4">
-          <AnimatePresence>
-            {filteredOrders.length > 0 ? (
-              filteredOrders.map(order => (
-                <OrderCard key={order.id} order={order} />
-              ))
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-center py-20"
-              >
-                <CheckCircle className="w-16 h-16 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">No {activeTab} Orders</h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">
-                  {activeTab === 'Live' 
-                    ? 'You have no orders currently on the way.'
-                    : 'Your completed and cancelled orders will appear here.'
-                  }
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+        {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 className="w-10 h-10 text-yellow-500 animate-spin mb-4" />
+                <p className="text-gray-500">Loading orders...</p>
+            </div>
+        ) : (
+            <motion.div layout className="space-y-4">
+            <AnimatePresence mode='popLayout'>
+                {filteredOrders.length > 0 ? (
+                filteredOrders.map(order => (
+                    <OrderCard key={order.id} order={order} />
+                ))
+                ) : (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-center py-20"
+                >
+                    <CheckCircle className="w-16 h-16 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">No {activeTab} Orders</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2">
+                    {activeTab === 'Live' 
+                        ? 'You have no orders currently on the way.'
+                        : 'Your completed and cancelled orders will appear here.'
+                    }
+                    </p>
+                    <Link href="/home">
+                        <button className="mt-6 px-6 py-2.5 bg-yellow-500 text-white font-bold rounded-full hover:bg-yellow-600 transition-colors">
+                            Start Shopping
+                        </button>
+                    </Link>
+                </motion.div>
+                )}
+            </AnimatePresence>
+            </motion.div>
+        )}
       </main>
     </div>
   );

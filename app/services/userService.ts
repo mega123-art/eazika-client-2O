@@ -19,9 +19,9 @@ export interface AuthResponse {
   statusCode: number;
   message: string;
   data: {
-    accessToken?: string; // Present in verify response
-    requestId?: string;   // Present in send-otp response
-    user?: User;          // Present in verify response
+    accessToken?: string;
+    requestId?: string;
+    user?: User;
     expiresIn?: string;
   };
 }
@@ -43,7 +43,6 @@ export interface VerifyOtpPayload {
   deviceInfo: string;
 }
 
-// ... (Keep existing Address interfaces) ...
 export interface Address {
   id: number;
   userId: number;
@@ -79,7 +78,6 @@ export interface UpdateProfilePayload {
 export const UserService = {
   // --- AUTHENTICATION ---
 
-  // 1. Registration
   registerUser: async (data: RegisterPayload) => {
     const response = await axiosInstance.post<AuthResponse>('/users/register', data);
     return response.data;
@@ -95,7 +93,6 @@ export const UserService = {
     return response.data;
   },
 
-  // 2. Login
   loginUser: async (data: LoginPayload) => {
     const response = await axiosInstance.post<AuthResponse>('/users/login', data);
     return response.data;
@@ -112,12 +109,8 @@ export const UserService = {
   },
 
   logout: async () => {
-    try {
-      const response = await axiosInstance.post('/users/logout');
-      return response.data;
-    } catch (error) {
-      return { success: true };
-    }
+    const response = await axiosInstance.post('/users/logout');
+    return response.data;
   },
   
   refresh: async (refreshToken?: string) => {
@@ -128,13 +121,8 @@ export const UserService = {
   // --- PROFILE ---
 
   getMe: async () => {
-    try {
-      const response = await axiosInstance.get<User>('/users/user/me');
-      return response.data;
-    } catch (error) {
-      console.warn("Fetch Profile Failed (Backend Down). Returning Guest.");
-      return null; 
-    }
+    const response = await axiosInstance.get<User>('/users/user/me');
+    return response.data;
   },
 
   updateProfile: async (data: UpdateProfilePayload) => {
@@ -149,17 +137,10 @@ export const UserService = {
 
   // --- ADDRESSES ---
 
+  // Assumed Endpoint: GET /users/user/addresses (Standard REST convention)
   getAddresses: async () => {
-    try {
-      // Note: Ensure this endpoint matches your backend (e.g., /users/user/addresses)
-      // Using '/users/user/add-new-address' as GET based on previous context, but 'addresses' is standard.
-      // Adjusting to a likely GET endpoint for listing.
-      const response = await axiosInstance.get<Address[]>('/users/user/addresses'); 
-      return response.data;
-    } catch (error) {
-      // Fallback for demo if endpoint is missing
-      return []; 
-    }
+    const response = await axiosInstance.get<Address[]>('/users/user/addresses'); 
+    return response.data;
   },
 
   addAddress: async (data: AddressPayload) => {

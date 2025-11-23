@@ -1,6 +1,6 @@
 import axiosInstance from '@/app/lib/axios';
 
-// --- Interfaces ---
+// --- 1. COMMON INTERFACES ---
 
 export interface BankDetail {
   accountHolderName: string;
@@ -18,6 +18,8 @@ export interface ShopDocuments {
   panImage: string;
 }
 
+// --- 2. SHOP & PROFILE PAYLOADS ---
+
 export interface CreateShopPayload {
   shopName: string;
   shopCategory: string;
@@ -28,6 +30,43 @@ export interface CreateShopPayload {
   documents: ShopDocuments;
 }
 
+export interface ShopProfile extends CreateShopPayload {
+  id: number;
+  userId: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- 3. PRODUCT INTERFACES ---
+
+export interface ProductPrice {
+  id?: number;
+  price: number;
+  discount: number;
+  weight: number;
+  unit: string;
+  currency: string;
+}
+
+export interface AddProductPayload {
+  productCategoryId: number;
+  globalProductId: number; // 0 if custom
+  isGlobalProduct: boolean;
+  name: string;
+  description: string;
+  images: string[];
+  stock: number;
+  prices: ProductPrice[];
+}
+
+export interface UpdateProductPayload {
+  name?: string;
+  description?: string;
+  images?: string[];
+  isActive?: boolean;
+}
+
 export interface ShopProduct {
   id: number;
   name: string;
@@ -35,10 +74,14 @@ export interface ShopProduct {
   images: string[];
   stock: number;
   isActive: boolean;
-  price: number;
   isGlobal: boolean;
   category: string;
+  // Mapped for UI convenience, usually derived from 'prices' array
+  price: number; 
+  prices?: ProductPrice[]; 
 }
+
+// --- 4. ORDER INTERFACES ---
 
 export interface ShopOrder {
   id: number;
@@ -68,6 +111,8 @@ export interface ShopOrderDetail extends ShopOrder {
   };
 }
 
+// --- 5. RIDER INTERFACES ---
+
 export interface ShopRider {
   id: number;
   name: string;
@@ -88,56 +133,35 @@ export interface UserProfile {
   role: string;
 }
 
-export interface ShopProfile extends CreateShopPayload {
-  id: number;
-  userId: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
-// --- NEW: Analytics Interface ---
-export interface ShopAnalytics {
-  revenueChart: { label: string; value: number }[];
-  ordersChart: { label: string; value: number }[];
-  metrics: {
-    revenue: string;
-    orders: string;
-    customers: string;
-    aov: string;
-    // Trends for metrics (optional, can be calculated or sent by BE)
-    revenueTrend?: string;
-    ordersTrend?: string;
-    customersTrend?: string;
-    aovTrend?: string;
-  };
-  products: {
-    name: string;
-    sales: number;
-    revenue: string;
-  }[];
-}
-
-// --- Service Implementation ---
+// ==========================================
+//              SERVICE IMPLEMENTATION
+// ==========================================
 
 export const ShopService = {
   
-  // 1. SHOP MANAGEMENT
+  // --- SHOP MANAGEMENT ---
+
+  // POST /shops/create-shop
   createShop: async (data: CreateShopPayload) => {
     const response = await axiosInstance.post('/shops/create-shop', data);
     return response.data;
   },
 
+  // PUT /shops/update-shop
   updateShop: async (data: Partial<CreateShopPayload>) => {
     const response = await axiosInstance.put('/shops/update-shop', data);
     return response.data;
   },
 
+  // GET /shops/profile (Assumed Endpoint - Required for Profile Page)
   getShopProfile: async () => {
+    // NOTE: Endpoint assumed based on standard REST practices
     const response = await axiosInstance.get<ShopProfile>('/shops/profile');
     return response.data;
   },
 
+  // POST /upload (Assumed Endpoint for Images)
   uploadImage: async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -147,86 +171,119 @@ export const ShopService = {
     return response.data.url;
   },
 
-  // 2. PRODUCT MANAGEMENT
+  // --- PRODUCT MANAGEMENT ---
+
+  // GET /shops/products (Assumed Endpoint - Required for Products Page)
   getInventory: async () => {
     const response = await axiosInstance.get<ShopProduct[]>('/shops/products');
     return response.data;
   },
 
+  // GET /products/global (Assumed Endpoint - Required for Global Catalog Tab)
   getGlobalCatalog: async () => {
     const response = await axiosInstance.get<ShopProduct[]>('/products/global');
     return response.data;
   },
 
+  // POST /shops/add-shop-product
   addProduct: async (data: any) => {
-    const response = await axiosInstance.post('/shops/add-shop-product', data);
+    // Transforming UI data to API Payload structure if needed
+    const payload: AddProductPayload = {
+        productCategoryId: data.productCategoryId || 1,
+        globalProductId: data.globalProductId || 0,
+        isGlobalProduct: data.isGlobalProduct || false,
+        name: data.name,
+        description: data.description,
+        images: data.images,
+        stock: Number(data.stock),
+        prices: [{
+            price: Number(data.price),
+            discount: 0,
+            weight: 1,
+            unit: 'kg',
+            currency: 'INR'
+        }]
+    };
+    const response = await axiosInstance.post('/shops/add-shop-product', payload);
     return response.data;
   },
 
+  // PUT /shops/update-shop-product-stock/{productId}
   updateStock: async (productId: number, stock: number) => {
     const response = await axiosInstance.put(`/shops/update-shop-product-stock/${productId}`, { stock });
     return response.data;
   },
 
-  updateProductDetails: async (productId: number, data: any) => {
+  // PUT /shops/update-shop-product/{productId}
+  updateProductDetails: async (productId: number, data: Partial<UpdateProductPayload>) => {
     const response = await axiosInstance.put(`/shops/update-shop-product/${productId}`, data);
     return response.data;
   },
 
+  // DELETE /shops/products/{id} (Assumed Endpoint)
   deleteProduct: async (productId: number) => {
     const response = await axiosInstance.delete(`/shops/products/${productId}`);
     return response.data;
   },
 
-  // 3. ORDER MANAGEMENT
+  // --- ORDER MANAGEMENT ---
+  
+  // GET /shops/orders (Assumed Endpoint - Required for Orders List)
   getShopOrders: async (status?: string) => {
     const params = status && status !== 'all' ? { status } : {};
     const response = await axiosInstance.get<ShopOrder[]>('/shops/orders', { params });
     return response.data;
   },
 
+  // GET /shops/orders/{id} (Assumed Endpoint - Required for Order Details)
   getShopOrderById: async (id: number) => {
     const response = await axiosInstance.get<ShopOrderDetail>(`/shops/orders/${id}`);
     return response.data;
   },
 
+  // PUT /shops/orders/{id}/status (Assumed Endpoint)
   updateOrderStatus: async (id: number, status: string) => {
     const response = await axiosInstance.put(`/shops/orders/${id}/status`, { status });
     return response.data;
   },
 
-  // 4. RIDER MANAGEMENT
+  // --- RIDER MANAGEMENT ---
+
+  // GET /shops/riders (Assumed Endpoint)
   getShopRiders: async () => {
     const response = await axiosInstance.get<ShopRider[]>('/shops/riders');
     return response.data;
   },
 
+  // GET /shops/get-user?phone=...
   searchUserByPhone: async (phone: string) => {
     const response = await axiosInstance.get<UserProfile>('/shops/get-user', { params: { phone } });
     return response.data;
   },
 
+  // PATCH /shops/send-invite-to-delivery
   sendRiderInvite: async (userId: number) => {
     const response = await axiosInstance.patch('/shops/send-invite-to-delivery', { userId });
     return response.data;
   },
 
+  // POST /shops/orders/{orderId}/assign (Assumed Endpoint)
   assignRider: async (orderId: number, riderId: number) => {
     const response = await axiosInstance.post(`/shops/orders/${orderId}/assign`, { riderId });
     return response.data;
   },
 
+  // DELETE /shops/riders/{riderId} (Assumed Endpoint)
   removeRider: async (riderId: number) => {
     const response = await axiosInstance.delete(`/shops/riders/${riderId}`);
     return response.data;
   },
 
-  // 5. ANALYTICS (NEW)
-  // Assumed Endpoint: GET /shops/analytics?range=Today
+  // --- ANALYTICS ---
+
+  // GET /shops/analytics (Assumed Endpoint)
   getAnalytics: async (range: string) => {
-    const response = await axiosInstance.get<ShopAnalytics>('/shops/analytics', { 
-        params: { range } 
-    });
+    const response = await axiosInstance.get('/shops/analytics', { params: { range } });
     return response.data;
   }
 };
