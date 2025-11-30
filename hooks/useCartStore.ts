@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { CartService, CartItem, AddToCartPayload, OrderPayload } from '@/services/cartService';
-import { products as mockProducts } from '@/app/data/mockData'; 
 
 interface CartState {
   items: CartItem[];
@@ -10,7 +9,6 @@ interface CartState {
   removeFromCart: (itemId: number) => Promise<void>;
   updateQuantity: (itemId: number, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
-  // Added placeOrder to interface
   placeOrder: (data: OrderPayload) => Promise<any>; 
   cartCount: number;
   cartTotal: number;
@@ -24,96 +22,52 @@ const calculateTotal = (items: CartItem[]) => {
   }, 0);
 };
 
-// Helper: Merge API cart items (IDs) with Mock Data (Images/Names)
-const mapCartItemsWithDetails = (apiItems: CartItem[]) => {
-  return apiItems.map(item => {
-    const product = mockProducts.find(p => parseInt(p.id.replace('p-', '')) === item.shopProductId);
-    if (product) {
-      return {
-        ...item,
-        productDetails: {
-          name: product.name,
-          image: product.images[0],
-          price: product.price
-        }
-      };
-    }
-    return item;
-  });
-};
-
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
   isLoading: false,
   cartCount: 0,
   cartTotal: 0,
 
+  // 1. Fetch Cart (Real API)
   fetchCart: async () => {
     set({ isLoading: true });
     try {
       const data = await CartService.getCart();
-      const itemsWithDetails = mapCartItemsWithDetails(data);
+      // Ensure data is an array (handle potential API variations)
+      const cartItems = Array.isArray(data) ? data : [];
       
       set({ 
-        items: itemsWithDetails, 
-        cartCount: itemsWithDetails.length,
-        cartTotal: calculateTotal(itemsWithDetails)
+        items: cartItems, 
+        cartCount: cartItems.length,
+        cartTotal: calculateTotal(cartItems)
       });
     } catch (error) {
-      console.warn("API Fetch failed (using local state):", error);
+      console.error("Failed to fetch cart:", error);
+      // On error, assume empty or keep previous state? usually empty for safety.
+      // set({ items: [], cartCount: 0, cartTotal: 0 });
     } finally {
       set({ isLoading: false });
     }
   },
 
+  // 2. Add to Cart (Real API + Refresh)
   addToCart: async (data) => {
     set({ isLoading: true });
-    
-    // 1. Prepare Optimistic Item
-    const product = mockProducts.find(p => parseInt(p.id.replace('p-', '')) === data.shopProductId);
-    const newItem: CartItem = {
-        id: Math.random(), // Temp ID
-        userId: 1,
-        shopProductId: data.shopProductId,
-        productPriceId: data.productPriceId,
-        quantity: data.quantity,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        productDetails: {
-            name: product?.name || 'Item',
-            image: product?.images[0] || '',
-            price: product?.price || 0
-        }
-    };
-
-    // 2. Optimistic Update
-    const currentItems = get().items;
-    const existingIndex = currentItems.findIndex(i => i.shopProductId === data.shopProductId);
-    let nextItems = [...currentItems];
-
-    if (existingIndex > -1) {
-        nextItems[existingIndex].quantity += data.quantity;
-    } else {
-        nextItems.push(newItem);
-    }
-
-    set({ 
-        items: nextItems, 
-        cartCount: nextItems.length,
-        cartTotal: calculateTotal(nextItems)
-    });
-
-    // 3. API Call
     try {
       await CartService.addToCart(data);
+      // After adding, we must re-fetch to get the full item details (image, name) 
+      // generated/populated by the server/database join.
+      await get().fetchCart();
     } catch (error) {
-      console.warn("API Add failed (Kept optimistic update for dev):", error);
+      console.error("Failed to add to cart:", error);
     } finally {
       set({ isLoading: false });
     }
   },
 
+  // 3. Remove Item (Optimistic or Fetch)
   removeFromCart: async (itemId) => {
+    // Optimistic Update for instant feel
     const previousItems = get().items;
     const updatedItems = previousItems.filter((i) => i.id !== itemId);
     
@@ -126,12 +80,20 @@ export const useCartStore = create<CartState>((set, get) => ({
     try {
       await CartService.removeCartItem(itemId);
     } catch (error) {
-      console.warn("API Remove failed:", error);
+      console.error("Failed to remove item:", error);
+      // Revert if failed
+      set({ 
+          items: previousItems, 
+          cartCount: previousItems.length, 
+          cartTotal: calculateTotal(previousItems) 
+      });
     }
   },
 
+  // 4. Update Quantity (Optimistic or Fetch)
   updateQuantity: async (itemId, quantity) => {
     if (quantity < 1) return;
+
     const previousItems = get().items;
     const updatedItems = previousItems.map((i) => (i.id === itemId ? { ...i, quantity } : i));
     
@@ -143,25 +105,39 @@ export const useCartStore = create<CartState>((set, get) => ({
     try {
       await CartService.updateCartItem(itemId, { quantity });
     } catch (error) {
-      console.warn("API Update failed:", error);
+      console.error("Failed to update quantity:", error);
+      // Revert if failed
+      set({ 
+          items: previousItems,
+          cartTotal: calculateTotal(previousItems)
+      });
     }
   },
 
+  // 5. Clear Cart
   clearCart: async () => {
+    const previousItems = get().items;
     set({ items: [], cartCount: 0, cartTotal: 0 });
+    
     try {
         await CartService.clearCart();
     } catch (error) {
-        console.warn("API Clear failed:", error);
+        console.error("Failed to clear cart:", error);
+        // Optionally revert, but usually clear cart isn't critical to revert unless strict
+        set({ 
+            items: previousItems, 
+            cartCount: previousItems.length, 
+            cartTotal: calculateTotal(previousItems) 
+        });
     }
   },
 
-  // Implemented placeOrder action
+  // 6. Place Order
   placeOrder: async (data) => {
     set({ isLoading: true });
     try {
         const order = await CartService.createOrder(data);
-        // Clear cart on success
+        // Clear local cart on success
         set({ items: [], cartCount: 0, cartTotal: 0 });
         return order;
     } catch (error) {

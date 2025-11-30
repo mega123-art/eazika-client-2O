@@ -170,7 +170,7 @@ export default function CartPage() {
           <p className="text-gray-500 dark:text-gray-400 mb-8 text-center max-w-sm">
             Looks like you haven't added anything to your cart yet. Explore our fresh categories!
           </p>
-          <Link href="/home">
+          <Link href="/">
             <button className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-3 px-8 rounded-full hover:opacity-90 transition-opacity">
               Start Shopping
             </button>

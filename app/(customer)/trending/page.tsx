@@ -1,22 +1,62 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Heart, Star, Plus, Flame, TrendingUp } from "lucide-react";
+import { ArrowLeft, Heart, Star, Plus, Flame, TrendingUp, Loader2, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
-import { products } from "@/app/data/mockData";
+import { ShopService, ShopProduct } from "@/services/shopService";
 import { useWishlistStore } from "@/hooks/useWishlistStore";
+import { useCartStore } from "@/hooks/useCartStore";
 
 export default function TrendingPage() {
   const router = useRouter();
   const { toggleWishlist, isWishlisted } = useWishlistStore();
+  const { addToCart, isLoading: isCartLoading } = useCartStore();
 
-  // Filter for trending items
-  const trendingProducts = useMemo(() => {
-    return products.filter((p) => p.isTrending);
+  const [trendingProducts, setTrendingProducts] = useState<ShopProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch Real Data
+  useEffect(() => {
+    const fetchTrending = async () => {
+      setIsLoading(true);
+      try {
+        const data = await ShopService.getTrendingProducts();
+        setTrendingProducts(data);
+      } catch (error) {
+        // FIX: Warn instead of Error to prevent app crash/overlay
+        console.warn("Trending API not found (404). Switching to fallback data.");
+        
+        // Fallback: Load Global Catalog if Trending endpoint is missing
+        try {
+            const fallbackData = await ShopService.getGlobalCatalog();
+            setTrendingProducts(fallbackData);
+        } catch (fallbackError) {
+            console.warn("Fallback data fetch failed.");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTrending();
   }, []);
+
+  const handleAddToCart = async (e: React.MouseEvent, product: ShopProduct) => {
+    e.preventDefault(); 
+    e.stopPropagation();
+    
+    // Use the first price ID if available, or fallback
+    const priceId = product.prices && product.prices.length > 0 ? product.prices[0].id : 1;
+
+    await addToCart({
+        shopProductId: product.id,
+        productPriceId: priceId || 1, 
+        quantity: 1
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 pb-24">
@@ -43,7 +83,11 @@ export default function TrendingPage() {
         </div>
 
         {/* Products Grid */}
-        {trendingProducts.length > 0 ? (
+        {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+                <Loader2 className="animate-spin text-yellow-500" size={40} />
+            </div>
+        ) : trendingProducts.length > 0 ? (
             <motion.div 
                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6"
                 initial="hidden"
@@ -57,7 +101,7 @@ export default function TrendingPage() {
                 }}
             >
                 {trendingProducts.map((product) => {
-                    const isLiked = isWishlisted(product.id);
+                    const isLiked = isWishlisted(product.id.toString());
                     
                     return (
                         <motion.div
@@ -79,7 +123,7 @@ export default function TrendingPage() {
                                     <button
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            toggleWishlist(product.id);
+                                            toggleWishlist(product.id.toString());
                                         }}
                                         className="absolute top-3 right-3 z-10 p-2 bg-white/80 dark:bg-black/40 backdrop-blur-sm rounded-full hover:scale-110 transition-transform"
                                     >
@@ -91,20 +135,24 @@ export default function TrendingPage() {
 
                                     {/* Image */}
                                     <div className="relative w-full aspect-square mb-3 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700">
-                                        <Image 
-                                            src={product.images[0]} 
-                                            alt={product.name}
-                                            layout="fill"
-                                            objectFit="cover"
-                                            className="group-hover:scale-110 transition-transform duration-500"
-                                        />
+                                        {product.images && product.images.length > 0 ? (
+                                            <Image 
+                                                src={product.images[0]} 
+                                                alt={product.name}
+                                                layout="fill"
+                                                objectFit="cover"
+                                                className="group-hover:scale-110 transition-transform duration-500"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>
+                                        )}
                                     </div>
 
                                     {/* Info */}
                                     <div className="flex-1 flex flex-col">
                                         <div className="flex items-center gap-1 mb-1">
                                             <Star size={12} className="text-yellow-400 fill-current" />
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">{product.rating}</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">{product.rating || '4.5'}</span>
                                         </div>
                                         
                                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-yellow-600 dark:group-hover:text-yellow-500 transition-colors">
@@ -116,14 +164,18 @@ export default function TrendingPage() {
                                                 <span className="text-base font-bold text-gray-900 dark:text-white">
                                                     ₹{product.price}
                                                 </span>
-                                                {/* Fake Discount Logic for "Deals" feel */}
+                                                {/* Fake Discount Logic for visual appeal */}
                                                 <span className="text-xs text-gray-400 line-through ml-2">
                                                     ₹{(product.price * 1.2).toFixed(0)}
                                                 </span>
                                             </div>
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:bg-yellow-500 group-hover:text-white transition-colors shadow-sm">
-                                                <Plus size={18} />
-                                            </div>
+                                            <button 
+                                                onClick={(e) => handleAddToCart(e, product)}
+                                                disabled={isCartLoading}
+                                                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:bg-yellow-500 group-hover:text-white transition-colors shadow-sm"
+                                            >
+                                                {isCartLoading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={18} />}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

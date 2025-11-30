@@ -12,15 +12,12 @@ import {
     Sun, 
     LogOut,
     AlertTriangle,
-    FileText,
-    LifeBuoy,
-    Loader2,
-    Store // Added Store icon
+    Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { useUserStore } from '@/hooks/useUserStore';
+import { useUserStore } from '@/hooks/useUserStore'; // Corrected import path
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -71,14 +68,14 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setIsClient(true);
-    // Fetch user data when page loads
+    // Fetch latest user data to ensure profile is up-to-date
     fetchUser();
   }, []);
 
   const handleLogout = async () => {
     await logout();
     setShowLogoutModal(false);
-    router.push('/login'); // Redirect to login after logout
+    router.push('/login'); 
   };
 
   const handleThemeToggle = () => {
@@ -86,9 +83,8 @@ export default function ProfilePage() {
   };
 
   const menuItems = [
-    { name: 'Edit Profile', icon: User, href: '/profile/edit' },
     { name: 'Delivery Addresses', icon: MapPin, href: '/profile/addresses' },
-    { name: 'Payment Methods', icon: CreditCard, href: '/profile/payment' },
+    // { name: 'Payment Methods', icon: CreditCard, href: '/profile/payment' },
     { name: 'Order History', icon: Package, href: '/orders' },
     { name: 'Notifications', icon: Bell, href: '/notifications' },
   ];
@@ -123,7 +119,11 @@ export default function ProfilePage() {
           variants={containerVariants}
         >
           {/* User Info Card */}
-          <motion.div variants={itemVariants} className="flex items-center gap-4 bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+          <motion.div 
+            variants={itemVariants} 
+            onClick={() => router.push('/profile/edit')}
+            className="flex items-center gap-4 bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden cursor-pointer group hover:shadow-md transition-shadow"
+          >
             {isLoading && (
                 <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 flex items-center justify-center z-10">
                     <Loader2 className="animate-spin text-yellow-500" />
@@ -137,12 +137,18 @@ export default function ProfilePage() {
               )}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">{user?.name || 'Guest User'}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email || 'Sign in to view profile'}</p>
+              {/* Dynamic Name */}
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {user?.name || 'Guest User'}
+              </h2>
+              {/* Dynamic Phone Number */}
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {user?.phone || user?.email || 'Sign in to view profile'}
+              </p>
             </div>
-            <Link href="/profile/edit" className="ml-auto p-2 text-gray-400 hover:text-yellow-500 transition-colors">
+            <div className="ml-auto p-2 text-gray-400 group-hover:text-yellow-500 transition-colors">
                  <ChevronRight size={20} />
-            </Link>
+            </div>
           </motion.div>
 
           {/* Menu Items */}
@@ -172,7 +178,7 @@ export default function ProfilePage() {
                          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                     </div>
                     <span className="font-medium text-gray-700 dark:text-gray-200">
-                      {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                      Dark Mode
                     </span>
                   </div>
                   {/* Toggle Switch UI */}
@@ -189,27 +195,6 @@ export default function ProfilePage() {
                 </button>
               </li>
             </ul>
-          </motion.div>
-
-          {/* Register as Shopkeeper Banner */}
-          <motion.div variants={itemVariants}>
-            <Link 
-                href="/shop/register" 
-                className="w-full flex items-center justify-between p-4 bg-linear-to-r from-gray-900 to-gray-800 dark:from-gray-800 dark:to-gray-700 rounded-2xl shadow-lg shadow-gray-200 dark:shadow-none hover:scale-[1.02] transition-all group border border-gray-200 dark:border-gray-600"
-            >
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-yellow-500 flex items-center justify-center text-white shadow-md">
-                        <Store className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-white text-lg">Register as Shopkeeper</h3>
-                        <p className="text-gray-300 text-xs">Grow your business with Eazika</p>
-                    </div>
-                </div>
-                <div className="bg-white/10 p-2 rounded-full">
-                    <ChevronRight className="w-5 h-5 text-white group-hover:translate-x-1 transition-transform" />
-                </div>
-            </Link>
           </motion.div>
 
           {/* Log Out Button */}
@@ -244,7 +229,7 @@ export default function ProfilePage() {
               </Link>
               <span className="text-gray-300 dark:text-gray-700">•</span>
               <Link
-                href="/support"
+                href="/contact-us"
                 className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
                 Support

@@ -21,7 +21,7 @@ export function BottomNav() {
   }
 
   const navItems = [
-    { name: "Home", href: "/home", icon: Home },
+    { name: "Home", href: "/", icon: Home },
     { name: "Category", href: "/categories", icon: Grid },
     { name: "Profile", href: "/profile", icon: User },
   ];

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { UserService, User, UpdateProfilePayload } from '@/services/userService';
+import Cookies from 'js-cookie'; 
 
 interface UserState {
   user: User | null;
@@ -11,7 +12,7 @@ interface UserState {
   fetchUser: () => Promise<void>;
   updateUser: (data: UpdateProfilePayload) => Promise<void>;
   logout: () => Promise<void>;
-  setAuthToken: (token: string) => void;
+  setAuthToken: (token: string, role?: string) => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -21,23 +22,44 @@ export const useUserStore = create<UserState>()(
       isAuthenticated: false,
       isLoading: false,
 
-      setAuthToken: (token: string) => {
+      setAuthToken: (token: string, role: string = 'user') => {
         localStorage.setItem('accessToken', token);
+        
+        Cookies.set('accessToken', token, { path: '/', expires: 7, sameSite: 'Lax' });
+        Cookies.set('userRole', role, { path: '/', expires: 7, sameSite: 'Lax' });
+        
         set({ isAuthenticated: true });
       },
 
       fetchUser: async () => {
         set({ isLoading: true });
+        
+        const token = localStorage.getItem('accessToken');
+        
+        if (token && !Cookies.get('accessToken')) {
+            Cookies.set('accessToken', token, { path: '/', expires: 7, sameSite: 'Lax' });
+        }
+
+        if (!token) {
+            set({ user: null, isAuthenticated: false, isLoading: false });
+            return;
+        }
+
         try {
           try {
             const userData = await UserService.getMe();
             set({ user: userData, isAuthenticated: true });
+            
+            if (userData?.role) {
+                Cookies.set('userRole', userData.role, { path: '/', expires: 7, sameSite: 'Lax' });
+            }
+
           } catch (apiError) {
              console.warn("API failed, using mock data", apiError);
              const mockUser: User = {
                 id: 1,
-                name: "kalp bisen",
-                email: "kalp@example.com",
+                name: "Rafatul Islam",
+                email: "rafatul@example.com",
                 phone: "9876543210",
                 image: null,
                 role: "user",
@@ -78,11 +100,25 @@ export const useUserStore = create<UserState>()(
         try {
           await UserService.logout();
         } catch (error) {
-          // CHANGED: console.error -> console.warn to prevent red screen overlay
-          console.warn("Logout failed (Network Error), clearing local session anyway", error);
+          console.warn("Logout API failed, clearing local session anyway", error);
         }
+        
+        // Full Cleanup
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        
+        Cookies.remove('accessToken', { path: '/' });
+        Cookies.remove('userRole', { path: '/' });
+        
         set({ user: null, isAuthenticated: false });
+        
+        if (typeof window !== 'undefined') {
+            // CRITICAL FIX: Only redirect if NOT already on the login page
+            // This prevents the infinite refresh loop
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
       }
     }),
     {

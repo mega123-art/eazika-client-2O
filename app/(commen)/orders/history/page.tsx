@@ -189,7 +189,7 @@ export default function OrderHistoryPage() {
                     ? "You don't have any ongoing orders right now." 
                     : "You haven't placed any orders yet."}
             </p>
-            <Link href="/home">
+            <Link href="/">
                 <button className="bg-yellow-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-yellow-600 transition-colors">
                     Start Shopping
                 </button>

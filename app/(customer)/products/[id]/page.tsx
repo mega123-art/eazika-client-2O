@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,41 +14,64 @@ import {
   Share2, 
   Truck,
   ShieldCheck,
-  Copy
+  Loader2
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { products } from "@/app/data/mockData";
+import { ShopService, ShopProduct } from "@/services/shopService"; // Use Service
 import { useCartStore } from "@/hooks/useCartStore";
 import { useWishlistStore } from "@/hooks/useWishlistStore";
 
 export default function ProductPage() {
   const params = useParams();
   const router = useRouter();
-  const { id } = params;
+  // Handle potential array if catch-all route, though [id] is usually string
+  const idParam = params?.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
   // Stores
-  const { addToCart, isLoading } = useCartStore();
+  const { addToCart, isLoading: isCartLoading } = useCartStore();
   const { toggleWishlist, isWishlisted } = useWishlistStore();
 
-  // Local State
+  // State
+  const [product, setProduct] = useState<ShopProduct | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<ShopProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   
-  // Variant State (Mocked for demo)
+  // Variant State (Mocked for UI as API might not support variants yet)
   const [selectedSize, setSelectedSize] = useState("1kg");
   const sizes = ["500g", "1kg", "2kg"];
-  
-  // Find Product
-  const product = products.find((p) => p.id === id);
-  const isLiked = product ? isWishlisted(product.id) : false;
 
-  // Related Products Logic
-  const relatedProducts = useMemo(() => {
-    if (!product) return [];
-    return products
-      .filter(p => p.category === product.category && p.id !== product.id)
-      .slice(0, 4);
-  }, [product]);
+  // Fetch Product Data
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // 1. Fetch Main Product
+        // Parse ID: Remove 'p-' prefix if present from old links, otherwise parse int
+        const numericId = parseInt(id.replace(/\D/g, '')) || 0;
+        const productData = await ShopService.getProductById(numericId);
+        setProduct(productData);
+
+        // 2. Fetch Related Products (Using Trending as a fallback for suggestions)
+        const trendingData = await ShopService.getTrendingProducts();
+        // Filter out current product and take top 4
+        setRelatedProducts(trendingData.filter(p => p.id !== numericId).slice(0, 4));
+
+      } catch (error) {
+        console.error("Failed to load product", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
+
+  const isLiked = product ? isWishlisted(product.id.toString()) : false;
 
   // Handlers
   const handleQuantityChange = (val: number) => {
@@ -59,11 +82,12 @@ export default function ProductPage() {
   const handleAddToCart = async () => {
     if (!product) return;
     
-    const numericId = parseInt(product.id.replace('p-', '')) || 1;
-    
+    // Use the first price ID if available, or fallback
+    const priceId = product.prices && product.prices.length > 0 ? product.prices[0].id : 1;
+
     await addToCart({
-      shopProductId: numericId,
-      productPriceId: 1, 
+      shopProductId: product.id,
+      productPriceId: priceId || 1, 
       quantity: quantity
     });
   };
@@ -71,15 +95,22 @@ export default function ProductPage() {
   const handleShare = () => {
     if (typeof window !== "undefined") {
       navigator.clipboard.writeText(window.location.href);
-      // You could use a toast notification here instead of alert
       alert("Link copied to clipboard!"); 
     }
   };
 
+  if (isLoading) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+            <Loader2 className="animate-spin text-yellow-500" size={40} />
+        </div>
+    );
+  }
+
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
-        <h2 className="text-xl font-bold">Product not found</h2>
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4 bg-white dark:bg-gray-900">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Product not found</h2>
         <button onClick={() => router.back()} className="text-blue-500 underline">
           Go Back
         </button>
@@ -95,14 +126,12 @@ export default function ProductPage() {
           <ArrowLeft size={24} className="text-gray-700 dark:text-white" />
         </button>
         <div className="flex gap-2">
-          {/* Share Button (Copy Link) */}
           <button 
             onClick={handleShare}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-95 transition-transform"
           >
             <Share2 size={24} className="text-gray-700 dark:text-white" />
           </button>
-          {/* REMOVED: Cart Icon Link from here as requested */}
         </div>
       </div>
 
@@ -115,22 +144,23 @@ export default function ProductPage() {
               layoutId={`product-image-${product.id}`}
               className="relative w-full aspect-square md:aspect-4/3 bg-gray-100 dark:bg-gray-800 md:rounded-3xl overflow-hidden"
             >
-              <Image
-                src={product.images[activeImage] || product.images[0]}
-                alt={product.name}
-                layout="fill"
-                objectFit="cover"
-                className="priority"
-              />
-              {product.isTrending && (
-                 <span className="absolute top-4 left-4 bg-yellow-500 text-white text-xs font-bold px-3 py-1.5 rounded-full z-10 shadow-sm">
-                   TRENDING
-                 </span>
+              {product.images && product.images.length > 0 ? (
+                  <Image
+                    src={product.images[activeImage] || product.images[0]}
+                    alt={product.name}
+                    layout="fill"
+                    objectFit="cover"
+                    className="priority"
+                  />
+              ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
               )}
+              {/* Trending Badge logic if available in API response, otherwise remove or use static */}
+              {/* <span className="absolute top-4 left-4 bg-yellow-500 text-white text-xs font-bold px-3 py-1.5 rounded-full z-10 shadow-sm">TRENDING</span> */}
             </motion.div>
 
             {/* Thumbnails */}
-            {product.images.length > 1 && (
+            {product.images && product.images.length > 1 && (
               <div className="flex gap-3 px-4 md:px-0 overflow-x-auto no-scrollbar">
                 {product.images.map((img, idx) => (
                   <button
@@ -166,7 +196,7 @@ export default function ProductPage() {
                       <Share2 size={24} className="text-gray-600 dark:text-gray-300" />
                     </button>
                     <button 
-                      onClick={() => toggleWishlist(product.id)}
+                      onClick={() => toggleWishlist(product.id.toString())}
                       className="p-3 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <Heart size={24} className={isLiked ? "fill-red-500 text-red-500" : "text-gray-400"} />
@@ -177,7 +207,7 @@ export default function ProductPage() {
                <div className="flex items-center gap-2 text-sm">
                   <div className="flex items-center text-yellow-500">
                     <Star size={16} fill="currentColor" />
-                    <span className="ml-1 font-bold">{product.rating}</span>
+                    <span className="ml-1 font-bold">{product.rating || '4.5'}</span>
                   </div>
                   <span className="text-gray-400">•</span>
                   <span className="text-gray-500 dark:text-gray-400">120 Reviews</span>
@@ -210,7 +240,7 @@ export default function ProductPage() {
                 </div>
             </div>
 
-            {/* ADDED: Variant / Size Selection */}
+            {/* Variant / Size Selection */}
             <div>
               <p className="font-bold text-sm text-gray-900 dark:text-white mb-3">Select Size</p>
               <div className="flex flex-wrap gap-3">
@@ -234,7 +264,7 @@ export default function ProductPage() {
             <div>
                 <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-2">Description</h3>
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Experience premium quality with our {product.name}. Sourced from the best suppliers to ensure freshness and durability. Perfect for your daily needs and carefully packaged to maintain high standards.
+                    {product.description || `Experience premium quality with our ${product.name}. Sourced from the best suppliers to ensure freshness and durability.`}
                 </p>
             </div>
 
@@ -260,17 +290,17 @@ export default function ProductPage() {
             <div className="fixed md:static bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 md:border-none md:p-0 md:bg-transparent z-20">
                 <div className="flex gap-4 max-w-7xl mx-auto">
                     <button 
-                        onClick={() => toggleWishlist(product.id)}
+                        onClick={() => toggleWishlist(product.id.toString())}
                         className="md:hidden p-4 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"
                     >
                         <Heart size={24} className={isLiked ? "fill-red-500 text-red-500" : ""} />
                     </button>
                     <button 
                         onClick={handleAddToCart}
-                        disabled={isLoading}
+                        disabled={isCartLoading}
                         className="flex-1 bg-yellow-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-yellow-500/30 hover:bg-yellow-600 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                     >
-                        {isLoading ? (
+                        {isCartLoading ? (
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
                             <>
@@ -285,7 +315,7 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* Related Products */}
+        {/* --- RELATED PRODUCTS --- */}
         {relatedProducts.length > 0 && (
             <div className="mt-16 px-4 md:px-0 mb-20 md:mb-0">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">You might also like</h2>
@@ -294,7 +324,11 @@ export default function ProductPage() {
                         <Link href={`/products/${rp.id}`} key={rp.id} className="group">
                             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700 transition-shadow hover:shadow-md">
                                 <div className="relative w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden mb-3">
-                                    <Image src={rp.images[0]} alt={rp.name} layout="fill" objectFit="cover" />
+                                    {rp.images && rp.images.length > 0 ? (
+                                        <Image src={rp.images[0]} alt={rp.name} layout="fill" objectFit="cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>
+                                    )}
                                 </div>
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-1 mb-1">{rp.name}</h3>
                                 <p className="text-sm font-bold text-gray-500">₹{rp.price}</p>

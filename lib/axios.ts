@@ -1,6 +1,5 @@
 import axios, { isAxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useUserStore } from "@/hooks/useUserStore";
-import { API_BASE_URL } from "@/lib/utils/constants"; // CHANGED: Import from constants
 
 declare module "axios" {
   export interface AxiosRequestConfig {
@@ -13,9 +12,11 @@ declare module "axios" {
   }
 }
 
-// CHANGED: We removed process.env here and use the constant instead
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://server.eazika.com';
+const BASE_URL = `${SERVER_URL}/api/v2`;
+
 const axiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: BASE_URL,
   timeout: 15000,
   headers: { "Content-Type": "application/json" },
 });
@@ -47,18 +48,30 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    
+    // CRITICAL FIX: Check if the failing request is the logout endpoint
+    const isLogoutRequest = originalRequest.url?.includes('/logout');
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; 
+    // If Logout API returns 401, it means token is already dead. 
+    // Don't retry, don't refresh. Just let the app clear local state.
+    if (isLogoutRequest && error.response?.status === 401) {
+         return Promise.resolve({ data: { success: true } }); // Fake success to stop loop
+    }
+
+    // Handle 401 (Unauthorized) for other requests
+    if (error.response?.status === 401 && !originalRequest._retry && !isLogoutRequest) {
+      originalRequest._retry = true;
 
       try {
-        // Use fresh axios call to avoid infinite loop in interceptors
-        // CHANGED: Use API_BASE_URL constant
-        const refreshToken = localStorage.getItem("refreshToken");
-        const response = await axios.post(`${API_BASE_URL}/users/refresh`, {
+        const refreshToken = localStorage.getItem("refreshToken"); 
+        
+        if (!refreshToken) throw new Error("No refresh token");
+
+        // Call Refresh API
+        const response = await axios.post(`${BASE_URL}/users/refresh`, {
             refreshToken: refreshToken
         }, {
-            withCredentials: true
+            withCredentials: true 
         });
 
         const { accessToken } = response.data.data;
@@ -71,8 +84,10 @@ axiosInstance.interceptors.response.use(
 
       } catch (refreshError) {
         console.warn("Session expired. Refresh failed. Logging out...");
-        const { logout } = useUserStore.getState();
-        await logout();
+        
+        // FORCE LOGOUT: Clear storage manually to avoid calling the API again
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
         
         if (typeof window !== "undefined") {
             window.location.href = "/login";
@@ -81,6 +96,7 @@ axiosInstance.interceptors.response.use(
       }
     }
 
+    // General Error Logging
     if (error.response) {
       console.warn("API Error:", error.response.data?.message || error.response.statusText);
     } else if (error.request) {

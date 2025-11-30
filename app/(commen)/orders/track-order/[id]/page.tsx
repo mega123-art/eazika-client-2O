@@ -237,10 +237,10 @@ function TrackOrderContent() {
     try {
         await CartService.cancelOrder(tracking.orderId, cancelReason || "Changed my mind");
         alert("Order cancelled successfully");
-        router.push('/home');
+        router.push('/');
     } catch (error) {
         console.warn("Cancel failed (network error), redirecting for demo");
-        router.push('/home');
+        router.push('/');
     }
   };
 
@@ -250,7 +250,7 @@ function TrackOrderContent() {
       return (
           <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-gray-900 p-4">
               <p className="text-gray-500 mb-4">Order not found or tracking unavailable.</p>
-              <button onClick={() => router.push('/home')} className="text-yellow-600 font-bold">Go Home</button>
+              <button onClick={() => router.push('/')} className="text-yellow-600 font-bold">Go Home</button>
           </div>
       );
   }

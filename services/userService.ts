@@ -75,6 +75,16 @@ export interface UpdateProfilePayload {
   image?: string;
 }
 
+// --- ADDED: Notification Interface ---
+export interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  type: 'order' | 'promo' | 'system' | 'alert';
+  isRead: boolean;
+  createdAt: string;
+}
+
 export const UserService = {
   // --- AUTHENTICATION ---
 
@@ -108,7 +118,6 @@ export const UserService = {
     return response.data;
   },
 
-  // FIX: Make logout resilient. Even if API fails, return success so client clears token.
   logout: async () => {
     try {
       const response = await axiosInstance.post('/users/logout');
@@ -127,8 +136,13 @@ export const UserService = {
   // --- PROFILE ---
 
   getMe: async () => {
-    const response = await axiosInstance.get<User>('/users/user/me');
-    return response.data;
+    try {
+      const response = await axiosInstance.get<User>('/users/user/me');
+      return response.data;
+    } catch (error) {
+      console.warn("Fetch Profile Failed (Backend Down). Returning Guest.");
+      return null; 
+    }
   },
 
   updateProfile: async (data: UpdateProfilePayload) => {
@@ -144,8 +158,12 @@ export const UserService = {
   // --- ADDRESSES ---
 
   getAddresses: async () => {
-    const response = await axiosInstance.get<Address[]>('/users/user/addresses'); 
-    return response.data;
+    try {
+      const response = await axiosInstance.get<Address[]>('/users/user/addresses'); 
+      return response.data;
+    } catch (error) {
+      return []; 
+    }
   },
 
   addAddress: async (data: AddressPayload) => {
@@ -161,5 +179,26 @@ export const UserService = {
   deleteAddress: async (addressId: number) => {
     const response = await axiosInstance.delete(`/users/user/delete-address/${addressId}`);
     return response.data;
+  },
+
+  // --- ADDED: NOTIFICATIONS ---
+  getNotifications: async () => {
+    try {
+        const response = await axiosInstance.get<Notification[]>('/users/notifications');
+        return response.data;
+    } catch (error) {
+        console.warn("Fetch Notifications Failed or Backend Down. Returning empty list.");
+        // Removed mock data to allow "No Notifications" UI state
+        return [];
+    }
+  },
+
+  markNotificationRead: async (id: number) => {
+      try {
+        const response = await axiosInstance.patch(`/users/notifications/${id}/read`);
+        return response.data;
+      } catch (error) {
+          return { success: false };
+      }
   }
 };

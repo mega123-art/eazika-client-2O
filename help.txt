@@ -1,27 +1,9 @@
-home page will be 
-then
-C:\Users\Administrator\Desktop\eazika-client-2O\app\(customer)\home\page.tsx
-now
-C:\Users\Administrator\Desktop\eazika-client-2O\app\page.tsx
-
-
-customer home page 
-
-serch bar -> banner -> catg -> fresh
-
-load mor k jagh infinife scrool
 
 
 
 
-ptofile page 
-
-dark name / light name theam 
 
 
-payment wala remove
-edit profile botton remove
-shope keeper botton remove
 
 
 
@@ -31,12 +13,6 @@ gst not compu;lsory
 
 
 
-
-category 
-
-meat
-vagei 
-bakry } remove
 
 
 
@@ -75,3 +51,77 @@ alart ()
 build errors
 
 
+
+
+
+
+
+
+-------------------
+
+
+
+shop page
+dashbord
+share botton } r
+add product } r
+
+
+all botton should have cusor pointer 
+
+shop / product 
+layout
+
+
+
+shop/profile 
+
+name -> shope detail
+
+
+
+
+
+
+after login name of user is not shouing up in profile
+
+
+
+user edit botton working
+
+
+
+user / notificatiobn page 
+
+
+
+
+header propfile name initial 
+
+
+heaer page indication hightight
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(((((((((((((((((((((((((**************************)))))))))))))))))))))))))
+backend
+
+
+			The 404 Error means the /products/trending endpoint hasn't been implemented on your backend server yet.
+			The 404 Error occurs because the /categories endpoint does not exist on your backend yet (it wasn't in the API list you provided)

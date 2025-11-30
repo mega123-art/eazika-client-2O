@@ -20,7 +20,7 @@ export function Header() {
   }, []);
 
   const navLinks = [
-    { name: "Home", href: "/home" },
+    { name: "Home", href: "/" },
     { name: "Categories", href: "/categories" },
     { name: "Deals", href: "/trending" },
   ];
@@ -37,7 +37,7 @@ export function Header() {
         {/* --- LEFT SECTION: Logo --- */}
         <div className="flex items-center gap-3 md:gap-6">
           <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex items-center">
-            <Link href="/home" className="flex items-center gap-2 group">
+            <Link href="/" className="flex items-center gap-2 group">
               <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg group-hover:rotate-12 transition-transform">
                 E
               </div>
