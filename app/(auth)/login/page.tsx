@@ -76,12 +76,12 @@ export default function LoginPage() {
       } else {
         setErrorMessage(data.message || "Failed to send OTP.");
       }
-    } catch (error: any) {
-      console.error("Login API Error:", error);
-      // Axios error structure
-      const msg =
-        error.response?.data?.message || error.message || "Login failed.";
-      setErrorMessage(msg);
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("An unknown error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -122,9 +122,11 @@ export default function LoginPage() {
         setErrorMessage(data.message || "Invalid OTP.");
       }
     } catch (error) {
-      console.error("Verify API Error:", error);
-      const msg = error.response?.data?.message || "Verification failed.";
-      setErrorMessage(msg);
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("An unknown error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -138,8 +140,12 @@ export default function LoginPage() {
       await UserService.resendLoginOtp({ phone: phone.replace(/\D/g, "") });
       setTimer(30);
       alert("OTP Resent Successfully!");
-    } catch (error: any) {
-      setErrorMessage(error.response?.data?.message || "Failed to resend OTP");
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("An unknown error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -295,7 +301,7 @@ export default function LoginPage() {
 
       <div className="mt-8 text-center pt-6 border-t border-gray-100 dark:border-gray-800 relative z-10">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Don't have an account?{" "}
+          Don&#39;t have an account?
           <Link
             href="/register"
             className="text-yellow-600 dark:text-yellow-400 font-bold hover:underline"
