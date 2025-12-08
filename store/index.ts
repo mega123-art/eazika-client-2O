@@ -1,3 +1,4 @@
-import { useCartStore } from "./useCartStore";
+import { cartStore as useCartStore } from "./cartStore";
+import { userStore } from "./userStore";
 
-export { useCartStore };
+export { useCartStore, userStore };

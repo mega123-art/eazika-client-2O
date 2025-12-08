@@ -19,7 +19,7 @@ interface CartState {
 const calculateTotal = (items: CartItem[]) =>
   items.reduce((total, item) => total + item.product.price * item.quantity, 0);
 
-export const useCartStore = create<CartState>((set, get) => ({
+export const cartStore = create<CartState>((set, get) => ({
   items: [],
   isLoading: false,
   cartCount: 0,
@@ -27,9 +27,9 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   fetchCart: () => fetchCartData(set),
   addToCart: (data) => addToCartData(data, get, set),
-  removeFromCart: (itemId) => removeFromCartData(itemId, get, set),
+  removeFromCart: (itemId) => removeFromCartData(Number(itemId), get, set),
   updateQuantity: (itemId, quantity) =>
-    updateQuantityData(itemId, quantity, get, set),
+    updateQuantityData(Number(itemId), quantity, get, set),
   clearCart: () => clearCartData(get, set),
   placeOrder: (data) => placeOrderData(data, set),
 }));
