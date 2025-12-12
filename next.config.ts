@@ -2,20 +2,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-        // 1. Enable SVG support
-    dangerouslyAllowSVG: true,
-    
-    // 2. Recommended security header for SVGs to prevent scripts from running
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // domains: ["*", "*.pinimg.com"]
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "placehold.co",
+        hostname: "*", // Replace with your first domain
       },
       {
         protocol: "https",
-        hostname: "images.unsplash.com", // Added just in case you switch back to Unsplash
+        hostname: "*", // Replace with your second domain
       },
+      // Add more domains as needed
     ],
   },
 };
