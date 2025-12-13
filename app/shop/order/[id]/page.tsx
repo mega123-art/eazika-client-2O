@@ -77,9 +77,8 @@ export default function ShopOrderDetailsPage({
     if (!selectedRider || !order) return;
     setIsUpdating(true);
     try {
-      await shopService.updateOrderStatus(
+      await shopService.assignRider(
         order.id,
-        "shipped",
         selectedRider.id
       );
 

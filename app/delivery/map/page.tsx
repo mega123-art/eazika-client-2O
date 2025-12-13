@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { DeliveryService } from "@/services/deliveryService";
 
 // --- 1. DARK MODE MAP STYLE (Blinkit/Uber Style) ---
 const darkMapStyle = [
@@ -133,10 +134,16 @@ export default function DeliveryMapPage() {
     }
   }, [isSessionActive, activeOrder, router]);
 
-  // Track Location
+
+
+  // Track Location & Sync to Backend
   useEffect(() => {
+    let watchId: number;
+    let intervalId: NodeJS.Timeout;
+
     if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
+      // 1. Watch Position for UI updates
+      watchId = navigator.geolocation.watchPosition(
         (position) => {
           setCurrentLocation({
             lat: position.coords.latitude,
@@ -146,7 +153,19 @@ export default function DeliveryMapPage() {
         () => console.warn("Location permission denied"),
         { enableHighAccuracy: true }
       );
-      return () => navigator.geolocation.clearWatch(watchId);
+
+      // 2. Sync to Backend every 10 seconds
+      intervalId = setInterval(() => {
+        navigator.geolocation.getCurrentPosition((pos) => {
+             DeliveryService.updateLocation(pos.coords.latitude, pos.coords.longitude)
+               .catch((err: any) => console.error("Location sync failed", err));
+        });
+      }, 10000);
+
+      return () => {
+        navigator.geolocation.clearWatch(watchId);
+        clearInterval(intervalId);
+      };
     }
   }, []);
 

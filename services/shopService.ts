@@ -276,16 +276,14 @@ export const ShopService = {
   // --- ORDER MANAGEMENT ---
   getShopOrders: async (page: number | string, limit: number | string) => {
     const response = await axios.get(
-      `/shops/orders/get-current-orders?page=${page}&limit=${limit}`
+      `/shops/get-shop-orders?page=${page}&limit=${limit}`
     );
     return response.data.data;
   },
 
   getShopOrderById: async (id: number | string): Promise<OrderDetail> => {
-    // const response = await axios.get(`/shops/orders/order/${id}`);
     const response = await axios.get(`/shops/orders/order/${id}`);
-    console.log("Order Detail Response:", response);
-    // order:orderId
+    // console.log("Order Detail Response:", response);
     return response.data.data.order;
   },
 
@@ -294,10 +292,18 @@ export const ShopService = {
     status: OrderDetail["status"],
     rider: number | string | null = null
   ) => {
-    const response = await axios.put(`/shops/orders/order/status/${id}`, {
-      // /shops/orders/order/status/1
+    // If rider is provided, use assign-order
+    if (rider) {
+      const response = await axiosInstance.post(
+        `/shops/assign-order`,
+        { orderId: id, deliveryBoyId: rider }
+      );
+      return response.data.data;
+    }
+    
+    const response = await axios.patch(`/shops/update-order-status`, {
+      orderId: id,
       status,
-      rider,
     });
     return response.data.data;
   },
@@ -323,13 +329,13 @@ export const ShopService = {
     return response.data;
   },
 
-  // assignRider: async (orderId: OrderDetail["id"], riderId: number | string) => {
-  //   const response = await axiosInstance.post(
-  //     `/shops/orders/${orderId}/assign`,
-  //     { riderId }
-  //   );
-  //   return response.data.data;
-  // },
+  assignRider: async (orderId: number | string, riderId: number | string) => {
+    const response = await axiosInstance.post(
+      `/shops/assign-order`,
+      { orderId, deliveryBoyId: riderId }
+    );
+    return response.data.data;
+  },
 
   removeRider: async (riderId: number) => {
     const response = await axiosInstance.delete(`/shops/riders/${riderId}`);
